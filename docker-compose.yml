@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # Message Broker - Redis
+  redis:
+    image: redis:7-alpine
+    container_name: inferline-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database - PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: inferline-postgres
+    environment:
+      POSTGRES_DB: inferline
+      POSTGRES_USER: inferline
+      POSTGRES_PASSWORD: inferline
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inferline"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # InferLine Gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway/Dockerfile
+    container_name: inferline-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - BROKER_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://inferline:inferline@postgres:5432/inferline
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    command: uvicorn inferline.gateway.app:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Example Provider
+  provider:
+    build:
+      context: .
+      dockerfile: docker/provider/Dockerfile
+    container_name: inferline-provider
+    environment:
+      - BROKER_URL=redis://redis:6379/0
+      - GATEWAY_URL=http://gateway:8000
+      - PROVIDER_NAME=example-provider
+    depends_on:
+      gateway:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    command: python -m inferline.provider.client
+    deploy:
+      replicas: 2
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: inferline-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: inferline-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/monitoring/grafana/:/etc/grafana/provisioning/
+    depends_on:
+      - prometheus
+
+  # Tracing - Jaeger
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: inferline-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+volumes:
+  redis_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: inferline-network
