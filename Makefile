@@ -38,7 +38,7 @@ install:
 	pip install -e .
 
 install-dev:
-	pip install -e ".[dev,docs,monitoring]"
+	pip install -e ".[dev,docs]"
 	pre-commit install
 
 test:

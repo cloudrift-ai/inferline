@@ -31,7 +31,7 @@ def main():
         sys.exit(1)
     
     # Install development dependencies
-    if not run_command("pip install -e '.[dev,docs,monitoring]'", project_root):
+    if not run_command("pip install -e '.[dev,docs]'", project_root):
         sys.exit(1)
     
     # Set up pre-commit hooks
