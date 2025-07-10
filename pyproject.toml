@@ -49,6 +49,9 @@ dependencies = [
     "rich>=13.0.0",
 ]
 
+[project.scripts]
+inferline = "inferline.cli:app"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
