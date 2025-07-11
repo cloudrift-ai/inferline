@@ -4,12 +4,12 @@ from datetime import datetime
 
 
 class Pricing(BaseModel):
-    prompt: str = Field("0", description="pricing per 1 token in USD")
-    completion: str = Field("0", description="pricing per 1 token in USD")
-    image: str = Field("0", description="pricing per 1 image")
-    request: str = Field("0", description="pricing per 1 request")
-    input_cache_reads: str = Field("0", description="pricing per 1 token")
-    input_cache_writes: str = Field("0", description="pricing per 1 token")
+    prompt: float = Field(0.0, description="pricing per 1 token in USD")
+    completion: float = Field(0.0, description="pricing per 1 token in USD")
+    image: float = Field(0.0, description="pricing per 1 image")
+    request: float = Field(0.0, description="pricing per 1 request")
+    input_cache_reads: float = Field(0.0, description="pricing per 1 token")
+    input_cache_writes: float = Field(0.0, description="pricing per 1 token")
 
 
 class Model(BaseModel):
@@ -102,7 +102,6 @@ class CompletionRequest(BaseModel):
     top_k: Optional[int] = Field(None, description="Top-k sampling value (range: [1, Infinity)).")
     n: Optional[int] = Field(1, description="How many completions to generate")
     stream: Optional[bool] = Field(False, description="If true, partial message deltas will be sent")
-    # logprobs: Optional[bool] = Field(False, description="Include the log probabilities on the logprobs most likely tokens")
     echo: Optional[bool] = Field(False, description="Echo back the prompt in addition to the completion")
     stop: Optional[List[str]] = Field(None, description="Sequences where the API will stop generating further tokens")
     presence_penalty: Optional[float] = Field(0.0,
@@ -112,7 +111,6 @@ class CompletionRequest(BaseModel):
     best_of: Optional[int] = Field(1,
                                    description="Generates best_of completions server-side and returns the \"best\" (the one with the highest log probability per token)")
     repetition_penalty: Optional[float] = Field(None, description="Repetition penalty")
-    # logit_bias: Optional[dict] = Field(None, description="Modify the likelihood of specified tokens appearing in the completion")
     user: Optional[str] = Field(None, description="A unique identifier representing your end-user")
     logprobs: Optional[int] = Field(None, description="Number of log probabilities to return per output token.")
     seed: Optional[int] = Field(None, description="Seed for deterministic outputs.")
