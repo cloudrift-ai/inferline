@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Any, List, Optional
 from datetime import datetime
+from enum import Enum
+import uuid
 
 
 class Pricing(BaseModel):
@@ -145,3 +147,41 @@ class CompletionResponse(BaseModel):
 
     class Config:
         extra = "allow"
+
+
+class InferenceStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class QueuedInferenceRequest(BaseModel):
+    request_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    request_type: str = Field(..., description="Type of request (completion or chat)")
+    request_data: dict = Field(..., description="Original request data")
+    status: InferenceStatus = Field(InferenceStatus.PENDING)
+    created_at: datetime = Field(default_factory=datetime.now)
+    started_at: Optional[datetime] = Field(None)
+    completed_at: Optional[datetime] = Field(None)
+    error_message: Optional[str] = Field(None)
+
+
+class InferenceResult(BaseModel):
+    request_id: str = Field(..., description="ID of the original request")
+    result_data: dict = Field(..., description="The inference result")
+    usage: Optional[dict] = Field(None, description="Usage statistics")
+    error_message: Optional[str] = Field(None, description="Error message if failed")
+
+
+class QueueStats(BaseModel):
+    pending_requests: int = Field(0, description="Number of pending requests")
+    processing_requests: int = Field(0, description="Number of processing requests")
+    completed_requests: int = Field(0, description="Number of completed requests")
+    failed_requests: int = Field(0, description="Number of failed requests")
+
+
+class InferenceRequestResponse(BaseModel):
+    request_id: str = Field(..., description="ID of the queued request")
+    status: InferenceStatus = Field(..., description="Current status of the request")
+    message: str = Field(..., description="Status message")
