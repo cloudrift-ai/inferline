@@ -11,12 +11,10 @@ from inferline.schemas.openai import (
     CompletionRequest,
     CompletionResponse,
     CompletionResponseChoice,
-    Pricing,
     QueuedInferenceRequest,
     InferenceResult,
     InferenceStatus,
-    QueueStats,
-    InferenceRequestResponse
+    QueueStats
 )
 
 
@@ -30,65 +28,56 @@ app = FastAPI(
 inference_queue: Dict[str, QueuedInferenceRequest] = {}
 results_storage: Dict[str, Union[CompletionResponse, dict]] = {}
 
+# Dynamic model tracking based on active requests
+available_models: Dict[str, Model] = {}
 
-# Mock models for demonstration
-AVAILABLE_MODELS = [
-    Model(
-        id="gpt-3.5-turbo",
-        object="model",
-        created=int(time.time()),
-        owned_by="openai",
-        pricing=Pricing(),
-        description="GPT-3.5 Turbo model",
-        context_length=4096,
-        max_output_length=4096
-    ),
-    Model(
-        id="gpt-4",
-        object="model",
-        created=int(time.time()),
-        owned_by="openai",
-        pricing=Pricing(),
-        description="GPT-4 model",
-        context_length=8192,
-        max_output_length=8192
-    ),
-    Model(
-        id="claude-3-sonnet",
-        object="model",
-        created=int(time.time()),
-        owned_by="anthropic",
-        pricing=Pricing(),
-        description="Claude 3 Sonnet model",
-        context_length=200000,
-        max_output_length=4096
-    ),
-    Model(
-        id="llama-2-70b",
-        object="model",
-        created=int(time.time()),
-        owned_by="meta",
-        pricing=Pricing(),
-        description="LLaMA 2 70B model",
-        context_length=4096,
-        max_output_length=4096
-    ),
-]
+
+def register_model_from_request(model_id: str):
+    """Register a model as available when it's requested by a provider"""
+    if model_id not in available_models:
+        # Create a basic model entry for the requested model
+        # In a real implementation, this could fetch model details from a registry
+        available_models[model_id] = Model(
+            id=model_id,
+            object="model",
+            created=int(time.time()),
+            owned_by="dynamic",
+            description=f"Dynamically registered model: {model_id}",
+            context_length=4096,  # Default values - could be configured
+            max_output_length=4096
+        )
+
+def cleanup_inactive_models():
+    """Remove models that are no longer being used in active requests"""
+    active_model_ids = set()
+    
+    # Collect model IDs from active requests
+    for request in inference_queue.values():
+        if request.status in [InferenceStatus.PENDING, InferenceStatus.PROCESSING]:
+            if request.request_type == "completion":
+                model_id = request.request_data.get("model")
+                if model_id:
+                    active_model_ids.add(model_id)
+    
+    # Keep only models that are in active use
+    models_to_remove = [model_id for model_id in available_models.keys() if model_id not in active_model_ids]
+    for model_id in models_to_remove:
+        del available_models[model_id]
 
 
 @app.get("/models", response_model=ModelsResponse)
 async def list_models():
-    """List all available models"""
-    return ModelsResponse(data=AVAILABLE_MODELS)
+    """List all available models based on active inference requests"""
+    # Clean up inactive models before returning the list
+    cleanup_inactive_models()
+    return ModelsResponse(data=list(available_models.values()))
 
 
 @app.post("/completions", response_model=CompletionResponse)
 async def create_completion(request: CompletionRequest):
     """Create a text completion (synchronous with queue processing)"""
-    # Validate model exists
-    model_ids = [model.id for model in AVAILABLE_MODELS]
-    if request.model not in model_ids:
-        raise HTTPException(status_code=404, detail=f"Model '{request.model}' not found")
+    # Register the requested model as available
+    register_model_from_request(request.model)
     
     # Create queued request
     queued_request = QueuedInferenceRequest(
