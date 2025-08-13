@@ -4,7 +4,8 @@
       "Bash(mkdir:*)",
       "Bash(chmod:*)",
       "Bash(python -m pytest tests/ -v)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
