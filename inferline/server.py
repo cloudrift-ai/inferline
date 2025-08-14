@@ -125,8 +125,8 @@ async def get_next_inference_request():
     ]
     
     if not pending_requests:
-        raise HTTPException(status_code=404, detail="No pending requests in queue")
-    
+        raise HTTPException(status_code=204, detail="No pending requests in queue")
+
     # Get the oldest request
     oldest_request = min(pending_requests, key=lambda x: x.created_at)
     

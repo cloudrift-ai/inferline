@@ -109,7 +109,7 @@ class OpenAIProvider:
                 if response.status == 200:
                     data = await response.json()
                     return QueuedInferenceRequest(**data)
-                elif response.status == 404:
+                elif response.status == 204:
                     # No pending requests
                     return None
                 else:
