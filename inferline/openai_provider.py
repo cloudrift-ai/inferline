@@ -172,6 +172,8 @@ class OpenAIProvider:
             # Process based on request type
             if request.request_type == "completion":
                 result = await self._process_completion_request(request)
+            elif request.request_type == "chat":
+                result = await self._process_chat_completion_request(request)
             else:
                 await self._submit_error_result(
                     request.request_id,
@@ -185,21 +187,35 @@ class OpenAIProvider:
         except Exception as e:
             logger.error(f"Error processing request {request.request_id}: {e}")
             await self._submit_error_result(request.request_id, str(e))
-    
+
     async def _process_completion_request(self, request: QueuedInferenceRequest) -> Dict:
-        """Process a completion request by calling OpenAI"""
         headers = {
             'Content-Type': 'application/json'
         }
         if self.openai_api_key:
             headers['Authorization'] = f'Bearer {self.openai_api_key}'
-        
-        # Prepare request data for OpenAI
-        openai_request = request.request_data.copy()
-        
+
         async with self.session.post(
             f"{self.openai_base_url}/v1/completions",
-            json=openai_request,
+            json=request.request_data,
+            headers=headers
+        ) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                error_text = await response.text()
+                raise Exception(f"OpenAI API error {response.status}: {error_text}")
+
+    async def _process_chat_completion_request(self, request: QueuedInferenceRequest) -> Dict:
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        if self.openai_api_key:
+            headers['Authorization'] = f'Bearer {self.openai_api_key}'
+
+        async with self.session.post(
+            f"{self.openai_base_url}/v1/chat/completions",
+            json=request.request_data,
             headers=headers
         ) as response:
             if response.status == 200:
