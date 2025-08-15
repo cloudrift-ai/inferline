@@ -44,6 +44,7 @@ jobs:
         id: builder
         with:
           context: .
+          file: docker/inferline.Dockerfile
           push: true
           tags: cloudriftai/inferline-server:latest
 
