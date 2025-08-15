@@ -22,8 +22,8 @@ jobs:
           chmod 600 ~/.ssh/inferline-server.key
           cat >>~/.ssh/config <<END
           Host inferline-server
-            HostName ${{ vars.SSH_SERVER_HOSTNAME }}
-            User ${{ vars.SSH_USER }}
+            HostName ${{ secrets.SSH_SERVER_HOSTNAME }}
+            User ${{ secrets.SSH_USER }}
             Port 22
             IdentityFile ~/.ssh/inferline-server.key
             StrictHostKeyChecking no
@@ -36,7 +36,7 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: docker.io
-          username: ${{ vars.CLOUDRIFT_DOCKERHUB_USER }}
+          username: ${{ secrets.CLOUDRIFT_DOCKERHUB_USER }}
           password: ${{ secrets.CLOUDRIFT_DOCKERHUB_PAT }}
 
       - name: Build and push Docker image
@@ -49,12 +49,12 @@ jobs:
 
       - name: Copy docker-compose file to server
         run: |
-          scp -i ~/.ssh/inferline-server.key docker/docker-compose-inferline.yml ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/docker-compose.yml
-          scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/nginx/
+          scp -i ~/.ssh/inferline-server.key docker/docker-compose-inferline.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER_HOSTNAME }}:~/docker-compose.yml
+          scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER_HOSTNAME }}:~/nginx/
 
       - name: Deploy with docker-compose
         run: |
-          ssh -i ~/.ssh/inferline-server.key ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }} << 'EOF'
+          ssh -i ~/.ssh/inferline-server.key ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER_HOSTNAME }} << 'EOF'
             docker-compose down || true
             docker-compose pull
             docker-compose up -d
