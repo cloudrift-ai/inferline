@@ -24,7 +24,7 @@ jobs:
           Host inferline-server
             HostName ${{ secrets.SSH_SERVER_HOSTNAME }}
             User ${{ secrets.SSH_USER }}
-            Port 22
+            Port ${{ secrets.SSH_PORT }}
             IdentityFile ~/.ssh/inferline-server.key
             StrictHostKeyChecking no
           END
