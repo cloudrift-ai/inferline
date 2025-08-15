@@ -1,0 +1,102 @@
+services:
+  inferline:
+    image: cloudriftai/inferline-server:latest
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - VIRTUAL_HOST=inferline.cloudrift.ai
+      - VIRTUAL_PORT=8080
+      - LETSENCRYPT_HOST=inferline.cloudrift.ai
+      - LETSENCRYPT_EMAIL=admin@cloudrift.ai
+      - HOST=0.0.0.0
+      - PORT=8080
+    depends_on:
+      - nginx-proxy
+      - acme-companion
+      - fluent-bit
+    networks:
+      - proxy-network
+    restart: unless-stopped
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "inferline.logs"
+
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - nginx_certs:/etc/nginx/certs
+      - nginx_vhost:/etc/nginx/vhost.d
+      - nginx_html:/usr/share/nginx/html
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+    environment:
+      - PROXY_READ_TIMEOUT=300
+      - PROXY_CONNECT_TIMEOUT=300
+      - PROXY_SEND_TIMEOUT=300
+      - CLIENT_MAX_BODY_SIZE=10m
+      - CLIENT_BODY_BUFFER_SIZE=128k
+    restart: always
+    labels:
+      - "com.github.nginx-proxy.nginx"
+    networks:
+      - proxy-network
+    depends_on:
+      - fluent-bit
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "nginx.logs"
+
+  acme-companion:
+    image: nginxproxy/acme-companion
+    container_name: acme-companion
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - acme:/etc/acme.sh
+      - nginx_certs:/etc/nginx/certs:rw
+      - nginx_vhost:/etc/nginx/vhost.d:rw
+      - nginx_html:/usr/share/nginx/html:rw
+    environment:
+      - DEFAULT_EMAIL=admin@cloudrift.ai
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+    depends_on:
+      - nginx-proxy
+      - fluent-bit
+    restart: always
+    networks:
+      - proxy-network
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "acme.logs"
+
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+    container_name: fluent-bit
+    volumes:
+      - ./fluent-bit/conf:/fluent-bit/etc
+    ports:
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
+    networks:
+      - proxy-network
+    restart: always
+
+networks:
+  proxy-network:
+    driver: bridge
+
+volumes:
+  nginx_certs:
+  nginx_vhost:
+  nginx_html:
+  acme:

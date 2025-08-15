@@ -1,0 +1,33 @@
+name: Undeploy Social Media Bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  undeploy:
+    name: Undeploy Social Media Bot
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure SSH access to the server
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/social-media-bot-server.key
+          chmod 600 ~/.ssh/social-media-bot-server.key
+          cat >>~/.ssh/config <<END
+          Host social-media-bot-server
+            HostName ${{ vars.SERVER_IP_ADDRESS }}
+            User ${{ vars.SSH_USER }}
+            Port 22
+            IdentityFile ~/.ssh/social-media-bot-server.key
+            StrictHostKeyChecking no
+          END
+
+      - name: Create Docker context for social-media-bot-server
+        run: docker context create social-media-bot-server --docker "host=ssh://social-media-bot-server"
+
+      - name: Stop old server if it's running
+        run: docker --context "social-media-bot-server" stop social-media-bot || true
+
+      - name: Remove old server container
+        run: docker --context "social-media-bot-server" rm social-media-bot || true

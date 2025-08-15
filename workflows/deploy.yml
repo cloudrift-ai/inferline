@@ -1,0 +1,68 @@
+name: Deploy Social Media Bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Social Media Bot
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH access to the server
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/social-media-bot-server.key
+          chmod 600 ~/.ssh/social-media-bot-server.key
+          cat >>~/.ssh/config <<END
+          Host social-media-bot-server
+            HostName ${{ vars.SERVER_IP_ADDRESS }}
+            User ${{ vars.SSH_USER }}
+            Port 22
+            IdentityFile ~/.ssh/social-media-bot-server.key
+            StrictHostKeyChecking no
+          END
+
+      - name: Create Docker context for social-media-bot-server
+        run: docker context create social-media-bot-server --docker "host=ssh://social-media-bot-server"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ vars.CLOUDRIFT_DOCKERHUB_USER }}
+          password: ${{ secrets.CLOUDRIFT_DOCKERHUB_PAT }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        id: builder
+        with:
+          context: .
+          push: true
+          tags: cloudriftai/social-media-bot:latest
+
+      - name: Stop old social-media-bot server if it's running
+        run: docker --context "social-media-bot-server" stop social-media-bot || true
+
+      - name: Remove old social-media-bot server container
+        run: docker --context "social-media-bot-server" rm social-media-bot || true
+
+      - name: Pull social-media-bot image on the server
+        run: docker --context "social-media-bot-server" pull "cloudriftai/social-media-bot:latest"
+
+      - name: Start new social-media-bot server
+        run: |
+          docker --context social-media-bot-server run -d \
+          --name social-media-bot \
+          --restart unless-stopped \
+          -e "REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}" \
+          -e "REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}" \
+          -e "REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}" \
+          -e "X_BEARER_TOKEN=${{ secrets.X_BEARER_TOKEN }}" \
+          -e "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" \
+          -e "LLM_API_KEY=${{ secrets.LLM_API_KEY }}" \
+          -e "DRY_RUN=false" \
+          cloudriftai/social-media-bot:latest

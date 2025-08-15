@@ -1,0 +1,61 @@
+name: Deploy Inferline Server
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Inferline Server
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH access to the server
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/inferline-server.key
+          chmod 600 ~/.ssh/inferline-server.key
+          cat >>~/.ssh/config <<END
+          Host inferline-server
+            HostName ${{ vars.SERVER_IP_ADDRESS }}
+            User ${{ vars.SSH_USER }}
+            Port 22
+            IdentityFile ~/.ssh/inferline-server.key
+            StrictHostKeyChecking no
+          END
+
+      - name: Create Docker context for inferline-server
+        run: docker context create inferline-server --docker "host=ssh://inferline-server"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ vars.CLOUDRIFT_DOCKERHUB_USER }}
+          password: ${{ secrets.CLOUDRIFT_DOCKERHUB_PAT }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        id: builder
+        with:
+          context: .
+          push: true
+          tags: cloudriftai/inferline-server:latest
+
+      - name: Copy docker-compose file to server
+        run: |
+          scp -i ~/.ssh/inferline-server.key docker-compose-inferline.yml ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }}:~/docker-compose.yml
+          scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }}:~/nginx/
+
+      - name: Deploy with docker-compose
+        run: |
+          ssh -i ~/.ssh/inferline-server.key ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }} << 'EOF'
+            docker-compose down || true
+            docker-compose pull
+            docker-compose up -d
+          EOF

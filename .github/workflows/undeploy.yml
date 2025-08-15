@@ -1,0 +1,31 @@
+name: Undeploy Inferline Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  undeploy:
+    name: Undeploy Inferline Server
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure SSH access to the server
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/inferline-server.key
+          chmod 600 ~/.ssh/inferline-server.key
+          cat >>~/.ssh/config <<END
+          Host inferline-server
+            HostName ${{ vars.SERVER_IP_ADDRESS }}
+            User ${{ vars.SSH_USER }}
+            Port 22
+            IdentityFile ~/.ssh/inferline-server.key
+            StrictHostKeyChecking no
+          END
+
+      - name: Stop and remove inferline services
+        run: |
+          ssh -i ~/.ssh/inferline-server.key ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }} << 'EOF'
+            docker-compose down
+            docker system prune -f
+          EOF
