@@ -50,12 +50,12 @@ jobs:
 
       - name: Copy docker-compose file to server
         run: |
-          scp -i ~/.ssh/inferline-server.key docker/docker-compose-inferline.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER_HOSTNAME }}:~/docker-compose.yml
-          scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER_HOSTNAME }}:~/nginx/
+          scp docker/docker-compose-inferline.yml inferline-server:~/docker-compose.yml
+          scp -r nginx/ inferline-server:~/nginx/
 
       - name: Deploy with docker-compose
         run: |
-          ssh -i ~/.ssh/inferline-server.key ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER_HOSTNAME }} << 'EOF'
+          ssh inferline-server << 'EOF'
             docker-compose down || true
             docker-compose pull
             docker-compose up -d
