@@ -82,7 +82,14 @@ jobs:
       - name: Deploy with docker-compose
         run: |
           ssh inferline-server << 'EOF'
-            docker-compose down || true
+            # Force stop and remove all containers
+            docker-compose down --timeout 30 || true
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm $(docker ps -aq) 2>/dev/null || true
+            
+            # Pull latest images
             docker-compose pull
+            
+            # Start services
             docker-compose up -d
           EOF
