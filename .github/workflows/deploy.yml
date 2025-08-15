@@ -22,7 +22,7 @@ jobs:
           chmod 600 ~/.ssh/inferline-server.key
           cat >>~/.ssh/config <<END
           Host inferline-server
-            HostName ${{ vars.SERVER_IP_ADDRESS }}
+            HostName ${{ vars.SSH_SERVER_HOSTNAME }}
             User ${{ vars.SSH_USER }}
             Port 22
             IdentityFile ~/.ssh/inferline-server.key
@@ -49,12 +49,12 @@ jobs:
 
       - name: Copy docker-compose file to server
         run: |
-          scp -i ~/.ssh/inferline-server.key docker-compose-inferline.yml ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }}:~/docker-compose.yml
-          scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }}:~/nginx/
+          scp -i ~/.ssh/inferline-server.key docker-compose-inferline.yml ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/docker-compose.yml
+          scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/nginx/
 
       - name: Deploy with docker-compose
         run: |
-          ssh -i ~/.ssh/inferline-server.key ${{ vars.SSH_USER }}@${{ vars.SERVER_IP_ADDRESS }} << 'EOF'
+          ssh -i ~/.ssh/inferline-server.key ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }} << 'EOF'
             docker-compose down || true
             docker-compose pull
             docker-compose up -d
