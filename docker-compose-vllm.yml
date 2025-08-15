@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # InferLine Server
+  inferline:
+    build:
+      context: .
+      dockerfile: docker/inferline.Dockerfile
+    container_name: inferline-server
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./logs:/app/logs
+    command: python3 -m inferline.server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - inferline-network
+
+  # llama.cpp with TinyLlama
+  llamacpp-tinyllama:
+    build:
+      context: .
+      dockerfile: docker/llamacpp-tinyllama.Dockerfile
+    container_name: llamacpp-tinyllama
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 60s
+      timeout: 30s
+      start_period: 120s
+      retries: 3
+    networks:
+      - inferline-network
+
+  # OpenAI Provider (connects llama.cpp to InferLine)
+  openai-provider:
+    build:
+      context: .
+      dockerfile: docker/openai-provider.Dockerfile
+    container_name: openai-provider
+    environment:
+      - OPENAI_BASE_URL=http://llamacpp-tinyllama:8000
+      - INFERLINE_BASE_URL=http://inferline:8000
+      - POLL_INTERVAL=1.0
+      - MODEL_REFRESH_INTERVAL=60.0
+      - PYTHONPATH=/app
+    depends_on:
+      inferline:
+        condition: service_healthy
+      llamacpp-tinyllama:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    command: inferline-openai-provider
+    restart: unless-stopped
+    networks:
+      - inferline-network
+
+volumes:
+  vllm_cache:
+    driver: local
+
+networks:
+  inferline-network:
+    driver: bridge

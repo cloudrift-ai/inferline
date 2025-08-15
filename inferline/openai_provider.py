@@ -72,7 +72,7 @@ class OpenAIProvider:
                 headers['Authorization'] = f'Bearer {self.openai_api_key}'
             
             async with self.session.get(
-                f"{self.openai_base_url}/models",
+                f"{self.openai_base_url}/v1/models",
                 headers=headers
             ) as response:
                 if response.status == 200:
@@ -82,10 +82,47 @@ class OpenAIProvider:
                     self.available_models = [model['id'] for model in models]
                     self.last_model_refresh = time.time()
                     logger.info(f"Refreshed models: {self.available_models}")
+                    
+                    # Register models with InferLine
+                    await self._register_models_with_inferline(models)
                 else:
                     logger.warning(f"Failed to fetch models: HTTP {response.status}")
         except Exception as e:
             logger.error(f"Error fetching models from OpenAI: {e}")
+    
+    async def _register_models_with_inferline(self, raw_models):
+        """Register discovered models with InferLine server"""
+        try:
+            # Convert raw model data to InferLine Model format
+            models = []
+            for raw_model in raw_models:
+                model_data = {
+                    "id": raw_model['id'],
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": "openai-provider",
+                    "provider_name": "llama.cpp",
+                    "description": f"Model served via llama.cpp: {raw_model['id']}"
+                }
+                models.append(model_data)
+            
+            # Register with InferLine
+            registration_data = {
+                "provider_id": "openai-provider",
+                "models": models
+            }
+            
+            async with self.session.post(
+                f"{self.inferline_base_url}/providers/register",
+                json=registration_data
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    logger.info(f"Successfully registered {len(models)} models with InferLine")
+                else:
+                    logger.warning(f"Failed to register models with InferLine: HTTP {response.status}")
+        except Exception as e:
+            logger.error(f"Error registering models with InferLine: {e}")
     
     async def _request_processing_loop(self):
         """Main loop to poll for and process inference requests"""
@@ -161,7 +198,7 @@ class OpenAIProvider:
         openai_request = request.request_data.copy()
         
         async with self.session.post(
-            f"{self.openai_base_url}/completions",
+            f"{self.openai_base_url}/v1/completions",
             json=openai_request,
             headers=headers
         ) as response:
@@ -183,7 +220,7 @@ class OpenAIProvider:
             
             async with self.session.post(
                 f"{self.inferline_base_url}/queue/result",
-                json=result.dict()
+                json=result.model_dump()
             ) as response:
                 if response.status == 200:
                     logger.info(f"Successfully submitted result for request {request_id}")
@@ -204,7 +241,7 @@ class OpenAIProvider:
             
             async with self.session.post(
                 f"{self.inferline_base_url}/queue/result",
-                json=result.dict()
+                json=result.model_dump()
             ) as response:
                 if response.status == 200:
                     logger.info(f"Successfully submitted error for request {request_id}")
@@ -241,5 +278,10 @@ async def main():
         await provider.stop()
 
 
-if __name__ == "__main__":
+def cli_main():
+    """Entry point for console script"""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli_main()

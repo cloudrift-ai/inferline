@@ -5,8 +5,17 @@
       "Bash(chmod:*)",
       "Bash(python -m pytest tests/ -v)",
       "Bash(python3:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebSearch",
+      "Bash(docker-compose:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker logs:*)",
+      "Bash(curl:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker run:*)",
+      "Bash(rm:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

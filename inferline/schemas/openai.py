@@ -185,3 +185,14 @@ class InferenceRequestResponse(BaseModel):
     request_id: str = Field(..., description="ID of the queued request")
     status: InferenceStatus = Field(..., description="Current status of the request")
     message: str = Field(..., description="Status message")
+
+
+class ProviderModelRegistration(BaseModel):
+    provider_id: str = Field(..., description="Unique identifier for the provider")
+    models: List[Model] = Field(..., description="List of models available from this provider")
+
+
+class ProviderRegistrationResponse(BaseModel):
+    success: bool = Field(..., description="Whether registration was successful")
+    message: str = Field(..., description="Status message")
+    registered_models: int = Field(..., description="Number of models registered")

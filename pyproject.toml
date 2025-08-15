@@ -50,6 +50,7 @@ dependencies = [
 
 [project.scripts]
 inferline = "inferline.cli:app"
+inferline-openai-provider = "inferline.openai_provider:cli_main"
 
 [project.optional-dependencies]
 dev = [

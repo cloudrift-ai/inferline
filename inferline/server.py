@@ -14,7 +14,9 @@ from inferline.schemas.openai import (
     QueuedInferenceRequest,
     InferenceResult,
     InferenceStatus,
-    QueueStats
+    QueueStats,
+    ProviderModelRegistration,
+    ProviderRegistrationResponse
 )
 
 
@@ -27,6 +29,9 @@ app = FastAPI(
 # In-memory storage for queue and results
 inference_queue: Dict[str, QueuedInferenceRequest] = {}
 results_storage: Dict[str, Union[CompletionResponse, dict]] = {}
+
+# Provider-registered models tracking
+provider_models: Dict[str, Dict[str, Model]] = {}  # provider_id -> {model_id -> Model}
 
 # Dynamic model tracking based on active requests
 available_models: Dict[str, Model] = {}
@@ -67,10 +72,38 @@ def cleanup_inactive_models():
 
 @app.get("/models", response_model=ModelsResponse)
 async def list_models():
-    """List all available models based on active inference requests"""
-    # Clean up inactive models before returning the list
-    cleanup_inactive_models()
-    return ModelsResponse(data=list(available_models.values()))
+    """List all available models from registered providers"""
+    all_models = {}
+    
+    # Add models from all registered providers
+    for provider_id, models in provider_models.items():
+        for model_id, model in models.items():
+            all_models[model_id] = model
+    
+    # Also include dynamically registered models from requests
+    for model_id, model in available_models.items():
+        if model_id not in all_models:
+            all_models[model_id] = model
+    
+    return ModelsResponse(data=list(all_models.values()))
+
+
+@app.post("/providers/register", response_model=ProviderRegistrationResponse)
+async def register_provider_models(registration: ProviderModelRegistration):
+    """Register models available from a provider"""
+    provider_id = registration.provider_id
+    models = registration.models
+    
+    # Store provider models
+    provider_models[provider_id] = {}
+    for model in models:
+        provider_models[provider_id][model.id] = model
+    
+    return ProviderRegistrationResponse(
+        success=True,
+        message=f"Successfully registered {len(models)} models for provider {provider_id}",
+        registered_models=len(models)
+    )
 
 
 @app.post("/completions", response_model=CompletionResponse)
