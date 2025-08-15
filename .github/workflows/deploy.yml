@@ -51,7 +51,7 @@ jobs:
       - name: Copy docker-compose file to server
         run: |
           scp docker/docker-compose-inferline.yml inferline-server:~/docker-compose.yml
-          scp -r nginx/ inferline-server:~/nginx/
+          scp -r nginx inferline-server:~/nginx
 
       - name: Deploy with docker-compose
         run: |
