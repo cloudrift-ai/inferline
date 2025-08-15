@@ -49,7 +49,7 @@ jobs:
 
       - name: Copy docker-compose file to server
         run: |
-          scp -i ~/.ssh/inferline-server.key docker-compose-inferline.yml ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/docker-compose.yml
+          scp -i ~/.ssh/inferline-server.key docker/docker-compose-inferline.yml ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/docker-compose.yml
           scp -r -i ~/.ssh/inferline-server.key nginx/ ${{ vars.SSH_USER }}@${{ vars.SSH_SERVER_HOSTNAME }}:~/nginx/
 
       - name: Deploy with docker-compose
