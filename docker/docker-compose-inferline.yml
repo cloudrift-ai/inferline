@@ -14,7 +14,6 @@ services:
     depends_on:
       - nginx-proxy
       - acme-companion
-      - fluent-bit
     networks:
       - proxy-network
     restart: unless-stopped
@@ -42,8 +41,6 @@ services:
       - "com.github.nginx-proxy.nginx"
     networks:
       - proxy-network
-    depends_on:
-      - fluent-bit
 
   acme-companion:
     image: nginxproxy/acme-companion
@@ -59,22 +56,9 @@ services:
       - NGINX_PROXY_CONTAINER=nginx-proxy
     depends_on:
       - nginx-proxy
-      - fluent-bit
     restart: always
     networks:
       - proxy-network
-
-  fluent-bit:
-    image: fluent/fluent-bit:latest
-    container_name: fluent-bit
-    volumes:
-      - ./fluent-bit/conf:/fluent-bit/etc
-    ports:
-      - "127.0.0.1:24224:24224"
-      - "127.0.0.1:24224:24224/udp"
-    networks:
-      - proxy-network
-    restart: always
 
 networks:
   proxy-network:
