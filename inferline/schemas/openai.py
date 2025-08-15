@@ -198,3 +198,14 @@ class ProviderRegistrationResponse(BaseModel):
     success: bool = Field(..., description="Whether registration was successful")
     message: str = Field(..., description="Status message")
     registered_models: int = Field(..., description="Number of models registered")
+
+
+class ProviderCapabilities(BaseModel):
+    provider_id: str = Field(..., description="Unique identifier for the provider")
+    supported_models: List[str] = Field(..., description="List of model IDs this provider can handle")
+    request_types: List[str] = Field(["completion"], description="Types of requests this provider supports")
+
+
+class QueueRequestWithCapabilities(BaseModel):
+    provider_capabilities: ProviderCapabilities = Field(..., description="Provider's capabilities")
+    provider_base_url: Optional[str] = Field(None, description="Base URL for provider health checks")

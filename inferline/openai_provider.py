@@ -7,7 +7,9 @@ import os
 
 from inferline.schemas.openai import (
     QueuedInferenceRequest,
-    InferenceResult
+    InferenceResult,
+    ProviderCapabilities,
+    QueueRequestWithCapabilities
 )
 
 logger = logging.getLogger(__name__)
@@ -82,47 +84,11 @@ class OpenAIProvider:
                     self.available_models = [model['id'] for model in models]
                     self.last_model_refresh = time.time()
                     logger.info(f"Refreshed models: {self.available_models}")
-                    
-                    # Register models with InferLine
-                    await self._register_models_with_inferline(models)
                 else:
                     logger.warning(f"Failed to fetch models: HTTP {response.status}")
         except Exception as e:
             logger.error(f"Error fetching models from OpenAI: {e}")
     
-    async def _register_models_with_inferline(self, raw_models):
-        """Register discovered models with InferLine server"""
-        try:
-            # Convert raw model data to InferLine Model format
-            models = []
-            for raw_model in raw_models:
-                model_data = {
-                    "id": raw_model['id'],
-                    "object": "model",
-                    "created": int(time.time()),
-                    "owned_by": "openai-provider",
-                    "provider_name": "llama.cpp",
-                    "description": f"Model served via llama.cpp: {raw_model['id']}"
-                }
-                models.append(model_data)
-            
-            # Register with InferLine
-            registration_data = {
-                "provider_id": "openai-provider",
-                "models": models
-            }
-            
-            async with self.session.post(
-                f"{self.inferline_base_url}/providers/register",
-                json=registration_data
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    logger.info(f"Successfully registered {len(models)} models with InferLine")
-                else:
-                    logger.warning(f"Failed to register models with InferLine: HTTP {response.status}")
-        except Exception as e:
-            logger.error(f"Error registering models with InferLine: {e}")
     
     async def _request_processing_loop(self):
         """Main loop to poll for and process inference requests"""
@@ -138,16 +104,29 @@ class OpenAIProvider:
                 await asyncio.sleep(self.poll_interval)
     
     async def _get_next_request(self) -> Optional[QueuedInferenceRequest]:
-        """Get the next pending request from inferline queue"""
+        """Get the next pending request from inferline queue that we can handle"""
         try:
-            async with self.session.get(
-                f"{self.inferline_base_url}/queue/next"
+            # Create provider capabilities
+            capabilities = ProviderCapabilities(
+                provider_id="openai-provider",
+                supported_models=self.available_models,
+                request_types=["completion", "chat"]
+            )
+            
+            request_data = QueueRequestWithCapabilities(
+                provider_capabilities=capabilities,
+                provider_base_url=self.openai_base_url
+            )
+            
+            async with self.session.post(
+                f"{self.inferline_base_url}/queue/next",
+                json=request_data.model_dump()
             ) as response:
                 if response.status == 200:
                     data = await response.json()
                     return QueuedInferenceRequest(**data)
                 elif response.status == 204:
-                    # No pending requests
+                    # No pending requests for this provider
                     return None
                 else:
                     logger.warning(f"Failed to get next request: HTTP {response.status}")
@@ -161,15 +140,7 @@ class OpenAIProvider:
         try:
             model = request.request_data.get('model')
             
-            # Check if we can handle this model
-            if model not in self.available_models:
-                await self._submit_error_result(
-                    request.request_id,
-                    f"Model '{model}' not available on OpenAI endpoint"
-                )
-                return
-            
-            # Process based on request type
+            # Process based on request type (no need to check model availability - server already filtered)
             if request.request_type == "completion":
                 result = await self._process_completion_request(request)
             elif request.request_type == "chat":

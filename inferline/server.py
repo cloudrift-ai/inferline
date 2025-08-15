@@ -16,7 +16,9 @@ from inferline.schemas.openai import (
     InferenceStatus,
     QueueStats,
     ProviderModelRegistration,
-    ProviderRegistrationResponse
+    ProviderRegistrationResponse,
+    ProviderCapabilities,
+    QueueRequestWithCapabilities
 )
 
 
@@ -30,11 +32,15 @@ app = FastAPI(
 inference_queue: Dict[str, QueuedInferenceRequest] = {}
 results_storage: Dict[str, Union[CompletionResponse, dict]] = {}
 
-# Provider-registered models tracking
+# Provider-registered models tracking (deprecated - kept for backward compatibility)
 provider_models: Dict[str, Dict[str, Model]] = {}  # provider_id -> {model_id -> Model}
 
 # Dynamic model tracking based on active requests
 available_models: Dict[str, Model] = {}
+
+# Active provider capabilities tracking
+active_providers: Dict[str, ProviderCapabilities] = {}  # provider_id -> capabilities
+provider_last_seen: Dict[str, float] = {}  # provider_id -> timestamp
 
 
 def register_model_from_request(model_id: str):
@@ -72,13 +78,40 @@ def cleanup_inactive_models():
 
 @app.get("/models", response_model=ModelsResponse)
 async def list_models():
-    """List all available models from registered providers"""
+    """List all available models from active providers"""
     all_models = {}
     
-    # Add models from all registered providers
+    # Clean up inactive providers (older than 5 minutes)
+    current_time = time.time()
+    inactive_providers = [
+        provider_id for provider_id, last_seen in provider_last_seen.items()
+        if current_time - last_seen > 300  # 5 minutes
+    ]
+    for provider_id in inactive_providers:
+        active_providers.pop(provider_id, None)
+        provider_last_seen.pop(provider_id, None)
+    
+    # Add models from active providers
+    for provider_id, capabilities in active_providers.items():
+        for model_id in capabilities.supported_models:
+            if model_id not in all_models:
+                # Create a basic model entry for each supported model
+                all_models[model_id] = Model(
+                    id=model_id,
+                    object="model",
+                    created=int(time.time()),
+                    owned_by=provider_id,
+                    description=f"Model served by provider: {provider_id}",
+                    provider_name=provider_id,
+                    context_length=4096,  # Default values
+                    max_output_length=4096
+                )
+    
+    # Add models from legacy registered providers (backward compatibility)
     for provider_id, models in provider_models.items():
         for model_id, model in models.items():
-            all_models[model_id] = model
+            if model_id not in all_models:
+                all_models[model_id] = model
     
     # Also include dynamically registered models from requests
     for model_id, model in available_models.items():
@@ -148,19 +181,32 @@ async def create_completion(request: CompletionRequest):
     raise HTTPException(status_code=408, detail="Request timeout - processing took too long")
 
 
-@app.get("/queue/next", response_model=QueuedInferenceRequest)
-async def get_next_inference_request():
-    """Get the next pending inference request from the queue"""
-    # Find the oldest pending request
-    pending_requests = [
-        req for req in inference_queue.values() 
-        if req.status == InferenceStatus.PENDING
-    ]
+@app.post("/queue/next", response_model=QueuedInferenceRequest)
+async def get_next_inference_request(provider_info: QueueRequestWithCapabilities):
+    """Get the next pending inference request that this provider can handle"""
+    capabilities = provider_info.provider_capabilities
+    provider_id = capabilities.provider_id
+    
+    # Update provider tracking
+    active_providers[provider_id] = capabilities
+    provider_last_seen[provider_id] = time.time()
+    
+    # Find pending requests that this provider can handle
+    pending_requests = []
+    for req in inference_queue.values():
+        if req.status == InferenceStatus.PENDING:
+            # Check if provider supports the requested model
+            requested_model = req.request_data.get('model')
+            request_type = req.request_type
+            
+            if (requested_model in capabilities.supported_models and 
+                request_type in capabilities.request_types):
+                pending_requests.append(req)
     
     if not pending_requests:
-        raise HTTPException(status_code=204, detail="No pending requests in queue")
+        raise HTTPException(status_code=204, detail="No pending requests for this provider")
 
-    # Get the oldest request
+    # Get the oldest request this provider can handle
     oldest_request = min(pending_requests, key=lambda x: x.created_at)
     
     # Mark as processing
