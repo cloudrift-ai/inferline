@@ -50,7 +50,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
-    model: str = Field("/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", description="The model to use for the chat completion")
+    model: str = Field("inferline/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", description="The model to use for the chat completion")
     messages: List[ChatMessage] = Field(default_factory=lambda: [ChatMessage(role="user", content="Hello! How are you today?")], description="The messages to generate chat completions for")
     temperature: Optional[float] = Field(0.7, description="What sampling temperature to use")
     max_tokens: Optional[int] = Field(256, description="The maximum number of tokens to generate")
@@ -97,7 +97,7 @@ class ChatCompletionResponse(BaseModel):
 
 
 class CompletionRequest(BaseModel):
-    model: str = Field("/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", description="The model to use for the completion")
+    model: str = Field("inferline/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", description="The model to use for the completion")
     prompt: str = Field("Hello! How are you today?", description="The prompt to generate completions for")
     max_tokens: Optional[int] = Field(256, description="The maximum number of tokens to generate")
     temperature: Optional[float] = Field(0.7, description="What sampling temperature to use")

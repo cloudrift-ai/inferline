@@ -81,7 +81,7 @@ class OpenAIProvider:
                     data = await response.json()
                     # Extract model IDs from OpenAI format
                     models = data.get('data', [])
-                    self.available_models = [model['id'] for model in models]
+                    self.available_models = [model['id'].removeprefix('/models/') for model in models]
                     self.last_model_refresh = time.time()
                     logger.info(f"Refreshed models: {self.available_models}")
                 else:

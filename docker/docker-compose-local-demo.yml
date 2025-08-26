@@ -22,6 +22,22 @@ services:
     networks:
       - inferline-network
 
+  # Frontend
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: inferline-frontend
+    ports:
+      - "5000:5000"
+    environment:
+      - API_BASE_URL=http://inferline:8000
+      - FRONTEND_BASE_URL=http://localhost:5000
+    depends_on:
+      - inferline
+    networks:
+      - inferline-network
+
   # llama.cpp with TinyLlama
   llamacpp-tinyllama:
     build:

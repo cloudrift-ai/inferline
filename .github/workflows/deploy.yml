@@ -39,16 +39,25 @@ jobs:
           username: ${{ secrets.CLOUDRIFT_DOCKERHUB_USER }}
           password: ${{ secrets.CLOUDRIFT_DOCKERHUB_PAT }}
 
-      - name: Build and push Docker image
+      - name: Build and push Backend Docker image
         uses: docker/build-push-action@v6
-        id: builder
+        id: backend-builder
         with:
           context: .
           file: docker/inferline.Dockerfile
           push: true
           tags: cloudriftai/inferline-server:latest
 
-      - name: Copy docker-compose file to server
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v6
+        id: frontend-builder
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          push: true
+          tags: cloudriftai/inferline-frontend:latest
+
+      - name: Copy configuration files to server
         run: |
           scp docker/docker-compose-inferline.yml inferline-server:~/docker-compose.yml
           scp -r nginx inferline-server:~/nginx
