@@ -18,11 +18,26 @@ services:
     environment:
       - API_BASE_URL=http://inferline:8000
       - FRONTEND_BASE_URL=https://inferline.cloudrift.ai
+    depends_on:
+      - inferline
+    networks:
+      - proxy-network
+    restart: unless-stopped
+
+  app-nginx:
+    image: nginx:alpine
+    container_name: app-nginx
+    expose:
+      - "80"
+    volumes:
+      - ./nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+    environment:
       - VIRTUAL_HOST=inferline.cloudrift.ai
       - LETSENCRYPT_HOST=inferline.cloudrift.ai
       - LETSENCRYPT_EMAIL=admin@cloudrift.ai
     depends_on:
       - inferline
+      - frontend
     networks:
       - proxy-network
     restart: unless-stopped
@@ -38,7 +53,6 @@ services:
       - nginx_certs:/etc/nginx/certs
       - nginx_vhost:/etc/nginx/vhost.d
       - nginx_html:/usr/share/nginx/html
-      - ./nginx/inferline.cloudrift.ai:/etc/nginx/vhost.d/inferline.cloudrift.ai:ro
     environment:
       - PROXY_READ_TIMEOUT=300
       - PROXY_CONNECT_TIMEOUT=300
@@ -63,7 +77,6 @@ services:
     environment:
       - DEFAULT_EMAIL=admin@cloudrift.ai
       - NGINX_PROXY_CONTAINER=nginx-proxy
-      - DOMAINS=inferline.cloudrift.ai
     depends_on:
       - nginx-proxy
     restart: always
