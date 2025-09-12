@@ -312,46 +312,8 @@ def model_detail(model_id):
   -H "Content-Type: application/json" \\
   -d '{
     "model": "{{ decoded_model_id }}",
-    "prompt": "Hello, how are you?",
-    "max_tokens": 100,
-    "temperature": 0.7
+    "prompt": "Hello, how are you?"
   }'</div>
-        </div>
-        
-        <div class="section">
-            <h3>Python Example</h3>
-            <div class="code-block">import requests
-
-url = "{{ base_url }}/api/completions"
-headers = {"Content-Type": "application/json"}
-data = {
-    "model": "{{ decoded_model_id }}",
-    "prompt": "Hello, how are you?",
-    "max_tokens": 100,
-    "temperature": 0.7
-}
-
-response = requests.post(url, headers=headers, json=data)
-print(response.json())</div>
-        </div>
-        
-        <div class="section">
-            <h3>JavaScript Example</h3>
-            <div class="code-block">const response = await fetch("{{ base_url }}/api/completions", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "{{ decoded_model_id }}",
-    prompt: "Hello, how are you?",
-    max_tokens: 100,
-    temperature: 0.7
-  })
-});
-
-const result = await response.json();
-console.log(result);</div>
         </div>
         
         <div class="section">
@@ -379,25 +341,13 @@ console.log(result);</div>
                     <td>max_tokens</td>
                     <td>integer</td>
                     <td>No</td>
-                    <td>Maximum number of tokens to generate (default: 16)</td>
+                    <td>Maximum number of tokens to generate (optional)</td>
                 </tr>
                 <tr>
                     <td>temperature</td>
                     <td>float</td>
                     <td>No</td>
-                    <td>Sampling temperature (0.0 to 2.0, default: 1.0)</td>
-                </tr>
-                <tr>
-                    <td>top_p</td>
-                    <td>float</td>
-                    <td>No</td>
-                    <td>Nucleus sampling parameter (default: 1.0)</td>
-                </tr>
-                <tr>
-                    <td>stop</td>
-                    <td>string or array</td>
-                    <td>No</td>
-                    <td>Stop sequences where generation should end</td>
+                    <td>Sampling temperature (optional, 0.0-2.0)</td>
                 </tr>
             </table>
         </div>
