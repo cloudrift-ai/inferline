@@ -6,9 +6,6 @@ services:
       - "8000"
     environment:
       - HOST=0.0.0.0
-    depends_on:
-      - nginx-proxy
-      - acme-companion
     networks:
       - proxy-network
     restart: unless-stopped
@@ -21,6 +18,9 @@ services:
     environment:
       - API_BASE_URL=http://inferline:8000
       - FRONTEND_BASE_URL=https://inferline.cloudrift.ai
+      - VIRTUAL_HOST=inferline.cloudrift.ai
+      - LETSENCRYPT_HOST=inferline.cloudrift.ai
+      - LETSENCRYPT_EMAIL=admin@cloudrift.ai
     depends_on:
       - inferline
     networks:
@@ -38,8 +38,7 @@ services:
       - nginx_certs:/etc/nginx/certs
       - nginx_vhost:/etc/nginx/vhost.d
       - nginx_html:/usr/share/nginx/html
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
-      - ./nginx/inferline.conf:/etc/nginx/conf.d/inferline.conf:ro
+      - ./nginx/inferline.cloudrift.ai:/etc/nginx/vhost.d/inferline.cloudrift.ai:ro
     environment:
       - PROXY_READ_TIMEOUT=300
       - PROXY_CONNECT_TIMEOUT=300
