@@ -60,7 +60,8 @@ jobs:
       - name: Copy configuration files to server
         run: |
           scp docker/docker-compose-inferline.yml inferline-server:~/docker-compose.yml
-          scp -r nginx inferline-server:~/nginx
+          ssh inferline-server 'mkdir -p ~/nginx'
+          scp nginx/app.conf inferline-server:~/nginx/app.conf
 
       - name: Install Docker and Docker Compose on server
         run: |
@@ -91,14 +92,22 @@ jobs:
       - name: Deploy with docker-compose
         run: |
           ssh inferline-server << 'EOF'
-            # Force stop and remove all containers
+            # Stop existing containers gracefully
             docker-compose down --timeout 30 || true
-            docker stop $(docker ps -aq) 2>/dev/null || true
-            docker rm $(docker ps -aq) 2>/dev/null || true
+            
+            # Clean up any stale vhost directories that might cause issues
+            docker volume inspect cloudrift_nginx_vhost > /dev/null 2>&1 && \
+              docker run --rm -v cloudrift_nginx_vhost:/vhost alpine sh -c "find /vhost -type d -name 'inferline.cloudrift.ai' -exec rm -rf {} + 2>/dev/null || true"
             
             # Pull latest images
             docker-compose pull
             
             # Start services
             docker-compose up -d
+            
+            # Wait for services to be healthy
+            sleep 10
+            
+            # Check deployment status
+            docker-compose ps
           EOF
