@@ -14,7 +14,8 @@
       "Bash(docker exec:*)",
       "Bash(docker run:*)",
       "Bash(rm:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

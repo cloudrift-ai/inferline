@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # TinyLlama server using LlamaCPP
+  tinyllama:
+    build:
+      context: ..
+      dockerfile: docker/llamacpp-tinyllama.Dockerfile
+    container_name: tinyllama
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+    networks:
+      - inferline-net
+
+  # OpenAI Provider to connect TinyLlama to InferLine
+  openai-provider:
+    build:
+      context: ..
+      dockerfile: docker/openai-provider.Dockerfile
+    container_name: openai-provider
+    environment:
+      - OPENAI_BASE_URL=http://tinyllama:8000
+      - OPENAI_API_KEY=not-needed
+      - INFERLINE_BASE_URL=https://inferline.cloudrift.ai/api
+      - POLL_INTERVAL=1.0
+      - MODEL_REFRESH_INTERVAL=60.0
+    depends_on:
+      - tinyllama
+    restart: unless-stopped
+    networks:
+      - inferline-net
+
+networks:
+  inferline-net:
+    driver: bridge
