@@ -59,37 +59,47 @@ def register_model_from_request(model_id: str):
         )
 
 def cleanup_inactive_models():
-    """Remove models that are no longer being used in active requests"""
+    """Remove models from providers that are no longer active"""
+    current_time = time.time()
+    
+    # Clean up inactive providers (older than 10 seconds)
+    inactive_providers = [
+        provider_id for provider_id, last_seen in provider_last_seen.items()
+        if current_time - last_seen > 10
+    ]
+    
+    # Remove inactive providers and their models
+    for provider_id in inactive_providers:
+        active_providers.pop(provider_id, None)
+        provider_last_seen.pop(provider_id, None)
+        print(f"Cleaned up inactive provider: {provider_id}")
+    
+    # Clean up models that are no longer supported by any active provider
     active_model_ids = set()
+    for capabilities in active_providers.values():
+        active_model_ids.update(capabilities.supported_models)
     
-    # Collect model IDs from active requests
-    for request in inference_queue.values():
-        if request.status in [InferenceStatus.PENDING, InferenceStatus.PROCESSING]:
-            if request.request_type == "completion":
-                model_id = request.request_data.get("model")
-                if model_id:
-                    active_model_ids.add(model_id)
+    # Remove models that are no longer supported by any active provider
+    models_to_remove = [
+        model_id for model_id in available_models.keys() 
+        if model_id not in active_model_ids
+    ]
     
-    # Keep only models that are in active use
-    models_to_remove = [model_id for model_id in available_models.keys() if model_id not in active_model_ids]
     for model_id in models_to_remove:
         del available_models[model_id]
+        print(f"Cleaned up inactive model: {model_id}")
+    
+    if inactive_providers or models_to_remove:
+        print(f"Cleanup complete. Active providers: {len(active_providers)}, Available models: {len(available_models)}")
 
 
 @app.get("/models", response_model=ModelsResponse)
 async def list_models():
     """List all available models from active providers"""
-    all_models = {}
+    # Clean up inactive providers and models
+    cleanup_inactive_models()
     
-    # Clean up inactive providers (older than 5 minutes)
-    current_time = time.time()
-    inactive_providers = [
-        provider_id for provider_id, last_seen in provider_last_seen.items()
-        if current_time - last_seen > 300  # 5 minutes
-    ]
-    for provider_id in inactive_providers:
-        active_providers.pop(provider_id, None)
-        provider_last_seen.pop(provider_id, None)
+    all_models = {}
     
     # Add models from active providers
     for provider_id, capabilities in active_providers.items():
@@ -187,6 +197,9 @@ async def get_next_inference_request(provider_info: QueueRequestWithCapabilities
     capabilities = provider_info.provider_capabilities
     provider_id = capabilities.provider_id
     
+    # Clean up inactive models and providers periodically
+    cleanup_inactive_models()
+    
     # Update provider tracking
     active_providers[provider_id] = capabilities
     provider_last_seen[provider_id] = time.time()
@@ -282,8 +295,16 @@ async def get_queue_stats():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "timestamp": int(time.time())}
+    """Health check endpoint with cleanup statistics"""
+    cleanup_inactive_models()
+    
+    return {
+        "status": "healthy", 
+        "timestamp": int(time.time()),
+        "active_providers": len(active_providers),
+        "available_models": len(available_models),
+        "queued_requests": len(inference_queue)
+    }
 
 
 if __name__ == "__main__":
