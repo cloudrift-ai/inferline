@@ -308,12 +308,7 @@ def model_detail(model_id):
         
         <div class="section">
             <h3>cURL Example</h3>
-            <div class="code-block">curl -X POST "{{ base_url }}/api/completions" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "{{ decoded_model_id }}",
-    "prompt": "Hello, how are you?"
-  }'</div>
+            <div class="code-block">curl -X POST "{{ base_url }}/api/completions" -H "Content-Type: application/json" -d '{ "model": "{{ decoded_model_id }}", "prompt": "Hello, how are you?" }'</div>
         </div>
         
         <div class="section">
