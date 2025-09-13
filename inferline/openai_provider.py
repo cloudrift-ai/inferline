@@ -24,13 +24,18 @@ class OpenAIProvider:
         openai_api_key: Optional[str] = None,
         inferline_base_url: str = "http://localhost:8000",
         poll_interval: float = 1.0,
-        model_refresh_interval: float = 60.0
+        model_refresh_interval: float = 60.0,
+        provider_id: Optional[str] = None
     ):
         self.openai_base_url = openai_base_url.rstrip('/')
         self.openai_api_key = openai_api_key or os.getenv('OPENAI_API_KEY', '')
         self.inferline_base_url = inferline_base_url.rstrip('/')
         self.poll_interval = poll_interval
         self.model_refresh_interval = model_refresh_interval
+        self.provider_id = provider_id or os.getenv('PROVIDER_ID', 'openai-provider')
+        
+        # Log the provider ID for debugging
+        logger.info(f"Provider ID set to: {self.provider_id}")
         
         self.available_models: List[str] = []
         self.last_model_refresh = 0
@@ -108,10 +113,12 @@ class OpenAIProvider:
         try:
             # Create provider capabilities
             capabilities = ProviderCapabilities(
-                provider_id="openai-provider",
+                provider_id=self.provider_id,
                 supported_models=self.available_models,
                 request_types=["completion", "chat"]
             )
+            
+            logger.info(f"Sending capabilities with provider_id: {self.provider_id}")
             
             request_data = QueueRequestWithCapabilities(
                 provider_capabilities=capabilities,
@@ -248,13 +255,15 @@ async def main():
     inferline_base_url = os.getenv('INFERLINE_BASE_URL', 'http://localhost:8000')
     poll_interval = float(os.getenv('POLL_INTERVAL', '1.0'))
     model_refresh_interval = float(os.getenv('MODEL_REFRESH_INTERVAL', '60.0'))
+    provider_id = os.getenv('PROVIDER_ID', 'openai-provider')
     
     provider = OpenAIProvider(
         openai_base_url=openai_base_url,
         openai_api_key=openai_api_key,
         inferline_base_url=inferline_base_url,
         poll_interval=poll_interval,
-        model_refresh_interval=model_refresh_interval
+        model_refresh_interval=model_refresh_interval,
+        provider_id=provider_id
     )
     
     try:

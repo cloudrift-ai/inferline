@@ -12,21 +12,29 @@ services:
     restart: unless-stopped
     networks:
       - inferline-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/v1/models || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # OpenAI Provider to connect TinyLlama to InferLine
   openai-provider:
     build:
       context: ..
       dockerfile: docker/openai-provider.Dockerfile
-    container_name: openai-provider
+    container_name: tinyllama-provider
     environment:
       - OPENAI_BASE_URL=http://tinyllama:8000
       - OPENAI_API_KEY=not-needed
       - INFERLINE_BASE_URL=https://inferline.cloudrift.ai/api
       - POLL_INTERVAL=1.0
       - MODEL_REFRESH_INTERVAL=60.0
+      - PROVIDER_ID=${PROVIDER_ID:-tinyllama-provider}
     depends_on:
-      - tinyllama
+      tinyllama:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - inferline-net
